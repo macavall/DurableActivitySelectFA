@@ -4,6 +4,7 @@ using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace DurableDelete
 {
@@ -38,9 +39,19 @@ namespace DurableDelete
 
             logger.LogInformation(context.GetInput<string>());
 
-            var activityName = context.GetInput<string>();
+            var rawInputData = context.GetInput<string>();
 
-            outputs.Add(await context.CallActivityAsync<string>(activityName, activityName));
+            dynamic data = JsonConvert.DeserializeObject(rawInputData);
+
+            var inputData = (((dynamic)data)["input"]).ToString();
+
+            inputData = JsonConvert.DeserializeObject(inputData);
+
+            var activityName = ((dynamic)inputData)["activity"].Value;
+
+            var activityInput = ((dynamic)inputData)["data"].Value;
+
+            outputs.Add(await context.CallActivityAsync<string>(activityName, activityInput));
 
             return outputs;
         }
@@ -81,14 +92,16 @@ namespace DurableDelete
             }
             dynamic data = JsonConvert.DeserializeObject(requestBody);
             name = ((dynamic)data)["name"];
-            input = ((dynamic)data)["input"];
+            input = (((dynamic)data)["input"]).ToString();
 
+            // convert data to JObject
+            //JObject jObject = JObject.Parse(data);
 
             // Function input comes from the request content.
             //string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(name);
 
             // New orchestration instance with input
-            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(name, input);
+            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(name, requestBody);
 
             logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
 
